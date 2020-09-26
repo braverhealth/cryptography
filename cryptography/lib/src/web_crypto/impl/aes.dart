@@ -85,9 +85,9 @@ Future<web_crypto.CryptoKey> _aesCryptoKey(
 ) async {
   // Is it cached?
   final cached = secretKey.cachedValues[_webCryptoKeyCachingKey];
-  if (cached != null) {
-    return cached as web_crypto.CryptoKey;
-  }
+  // if (cached != null) {
+  //  return cached as web_crypto.CryptoKey;
+  // }
 
   // Construct it
   final secretKeyBytes = await secretKey.extract();
