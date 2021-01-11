@@ -52,6 +52,7 @@ export 'src/key_pair.dart';
 export 'src/mac.dart';
 export 'src/mac_algorithm.dart';
 export 'src/nonce.dart';
+export 'src/pem.dart';
 export 'src/private_key.dart';
 export 'src/public_key.dart';
 export 'src/secret_key.dart';

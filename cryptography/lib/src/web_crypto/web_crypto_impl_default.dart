@@ -152,6 +152,16 @@ Future<KeyPair> rsaNewKeyPairForSigning({
   throw UnimplementedError();
 }
 
+@override
+Future<KeyPair> rsaNewKeyPairForEncryption({
+  @required String name,
+  @required int modulusLength,
+  @required List<int> publicExponent,
+  @required String format,
+}) {
+  throw UnimplementedError();
+}
+
 Future<Signature> rsaPssSign(
   List<int> input,
   KeyPair keyPair, {

@@ -68,6 +68,82 @@ Future<KeyPair> rsaNewKeyPairForSigning({
   );
 }
 
+@override
+Future<KeyPair> rsaNewKeyPairForEncryption({
+  @required String name,
+  @required int modulusLength,
+  @required List<int> publicExponent,
+  @required String format,
+}) async {
+  ArgumentError.checkNotNull(name);
+  ArgumentError.checkNotNull(modulusLength);
+  ArgumentError.checkNotNull(publicExponent);
+
+  PublicKey publicKey;
+  PrivateKey privateKey;
+
+  // Generate CryptoKeyPair
+  final jsCryptoKeyPair =
+      await js.promiseToFuture<web_crypto.CryptoKeyPair>(web_crypto.generateKey(
+    web_crypto.RsaHashedKeyGenParams(
+      name: name,
+      modulusLength: modulusLength,
+      publicExponent: Uint8List.fromList(publicExponent),
+      hash: 'SHA-256',
+    ),
+    true,
+    ['encrypt', 'decrypt'],
+  ));
+
+  if (format == 'jwk') {
+    // Export to JWK
+    final jsJwk = await js.promiseToFuture<web_crypto.Jwk>(
+      web_crypto.exportKey('jwk', jsCryptoKeyPair.privateKey),
+    );
+
+    // Construct a keys
+    privateKey = RsaJwkPrivateKey(
+      n: _base64UrlDecode(jsJwk.n),
+      e: _base64UrlDecode(jsJwk.e),
+      d: _base64UrlDecode(jsJwk.d),
+      p: _base64UrlDecode(jsJwk.p),
+      q: _base64UrlDecode(jsJwk.q),
+      dp: _base64UrlDecode(jsJwk.dp),
+      dq: _base64UrlDecode(jsJwk.dq),
+      qi: _base64UrlDecode(jsJwk.qi),
+    );
+
+    publicKey = (privateKey as RsaJwkPrivateKey).toPublicKey();
+
+    // Cache Web Cryptography keys
+    privateKey.cachedValues[_webCryptoKeyCachingKey] = jsCryptoKeyPair.privateKey;
+    publicKey.cachedValues[_webCryptoKeyCachingKey] = jsCryptoKeyPair.publicKey;
+  } else if (format == 'pem') {
+    // Export to PKCS8
+    final privateData = await js.promiseToFuture<ByteBuffer>(
+      web_crypto.exportKey('pkcs8', jsCryptoKeyPair.privateKey),
+    );
+    final publicData = await js.promiseToFuture<ByteBuffer>(
+      web_crypto.exportKey('spki', jsCryptoKeyPair.publicKey),
+    );
+
+    // Construct a keys
+    privateKey = PEMPrivateKey.fromRawBytes(Uint8List.view(privateData).toList());
+    publicKey = PEMPublicKey.fromRawBytes(Uint8List.view(publicData).toList());
+
+    // Cache Web Cryptography keys
+    privateKey.cachedValues['decrypt'] = jsCryptoKeyPair.privateKey;
+    publicKey.cachedValues['encrypt'] = jsCryptoKeyPair.publicKey;
+  } else {
+    throw ArgumentError.value('Format invalid: $format (only "pem" and "jwk" are accepted)');
+  }
+
+  // Return a key pair
+  return KeyPair(
+    privateKey: privateKey,
+    publicKey: publicKey,
+  );
+}
 Future<Signature> rsaPssSign(
   List<int> message,
   KeyPair keyPair, {
