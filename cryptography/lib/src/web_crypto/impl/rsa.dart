@@ -144,6 +144,60 @@ Future<KeyPair> rsaNewKeyPairForEncryption({
     publicKey: publicKey,
   );
 }
+
+@override
+Future<Uint8List> rsaOaepEncrypt(
+  List<int> plainText, 
+  KeyPair keyPair,
+) async {
+  ArgumentError.checkNotNull(plainText, 'plainText');
+  ArgumentError.checkNotNull(keyPair, 'keyPair');
+
+  final byteBuffer = await js.promiseToFuture<ByteBuffer>(
+    web_crypto.encrypt(
+      web_crypto.RsaOaepParams(
+        name: 'RSA-OAEP',
+      ),
+      await _rsaCryptoKeyFromPublicKey(
+        keyPair.publicKey, 
+        name: 'RSA-OAEP',
+        hashName: 'SHA-256',
+        usage: 'encrypt',
+      ),
+      _jsArrayBufferFrom(plainText),
+    ),
+  );
+  return Uint8List.view(byteBuffer);
+}
+
+@override
+Future<Uint8List> rsaOaepDecrypt(
+  List<int> plainText, 
+  KeyPair keyPair, {
+  @required int modulusLength
+}) async {
+  ArgumentError.checkNotNull(plainText, 'plainText');
+  ArgumentError.checkNotNull(keyPair, 'keyPair');
+  ArgumentError.checkNotNull(modulusLength, 'modulusLength');
+
+  final byteBuffer = await js.promiseToFuture<ByteBuffer>(
+    web_crypto.decrypt(
+      web_crypto.RsaOaepParams(
+        name: 'RSA-OAEP',
+      ),
+      await _rsaCryptoKeyFromPrivateKey(
+        keyPair.privateKey, 
+        name: 'RSA-OAEP',
+        hashName: 'SHA-256',
+        modulusLength: modulusLength,
+        usage: 'decrypt',
+      ),
+      _jsArrayBufferFrom(plainText),
+    ),
+  );
+  return Uint8List.view(byteBuffer);
+}
+
 Future<Signature> rsaPssSign(
   List<int> message,
   KeyPair keyPair, {
@@ -159,6 +213,7 @@ Future<Signature> rsaPssSign(
       keyPair.privateKey,
       name: 'RSA-PSS',
       hashName: hashName,
+      usage: 'sign',
     ),
     _jsArrayBufferFrom(message),
   ));
@@ -183,6 +238,7 @@ Future<bool> rsaPssVerify(
       signature.publicKey,
       name: 'RSA-PSS',
       hashName: hashName,
+      usage: 'verify',
     ),
     _jsArrayBufferFrom(signature.bytes),
     _jsArrayBufferFrom(input),
@@ -200,6 +256,7 @@ Future<Signature> rsaSsaPkcs1v15Sign(
       keyPair.privateKey,
       name: 'RSASSA-PKCS1-v1_5',
       hashName: hashName,
+      usage: 'sign',
     ),
     _jsArrayBufferFrom(input),
   ));
@@ -220,6 +277,7 @@ Future<bool> rsaSsaPkcs1v15Verify(
       signature.publicKey,
       name: 'RSASSA-PKCS1-v1_5',
       hashName: hashName,
+      usage: 'verify',
     ),
     _jsArrayBufferFrom(signature.bytes),
     _jsArrayBufferFrom(input),
@@ -230,40 +288,62 @@ Future<web_crypto.CryptoKey> _rsaCryptoKeyFromPrivateKey(
   PrivateKey privateKey, {
   @required String name,
   @required String hashName,
+  @required String usage,
+  int modulusLength,
 }) async {
   // Is it cached?
-  final cachedValue = privateKey.cachedValues[_webCryptoKeyCachingKey];
+  final cachedValue = privateKey.cachedValues[usage];
   if (cachedValue != null) {
     return cachedValue;
   }
 
   // Import JWK key
-  final jwkPrivateKey = privateKey as RsaJwkPrivateKey;
-  final jsCryptoKey = js.promiseToFuture<web_crypto.CryptoKey>(
-    web_crypto.importKey(
-      'jwk',
-      web_crypto.Jwk(
-        kty: 'RSA',
-        n: _base64UrlEncode(jwkPrivateKey.n),
-        e: _base64UrlEncode(jwkPrivateKey.e),
-        p: _base64UrlEncode(jwkPrivateKey.p),
-        d: _base64UrlEncode(jwkPrivateKey.d),
-        q: _base64UrlEncode(jwkPrivateKey.q),
-        dp: _base64UrlEncode(jwkPrivateKey.dp),
-        dq: _base64UrlEncode(jwkPrivateKey.dq),
-        qi: _base64UrlEncode(jwkPrivateKey.qi),
+  var jsCryptoKey;
+  if (privateKey is RsaJwkPrivateKey) {
+    final jwkPrivateKey = privateKey;
+    jsCryptoKey = js.promiseToFuture<web_crypto.CryptoKey>(
+      web_crypto.importKey(
+        'jwk',
+        web_crypto.Jwk(
+          kty: 'RSA',
+          n: _base64UrlEncode(jwkPrivateKey.n),
+          e: _base64UrlEncode(jwkPrivateKey.e),
+          p: _base64UrlEncode(jwkPrivateKey.p),
+          d: _base64UrlEncode(jwkPrivateKey.d),
+          q: _base64UrlEncode(jwkPrivateKey.q),
+          dp: _base64UrlEncode(jwkPrivateKey.dp),
+          dq: _base64UrlEncode(jwkPrivateKey.dq),
+          qi: _base64UrlEncode(jwkPrivateKey.qi),
+        ),
+        web_crypto.RsaHashedImportParams(
+          name: name,
+          hash: hashName,
+        ),
+        false,
+        [usage],
       ),
-      web_crypto.RsaHashedImportParams(
-        name: name,
-        hash: hashName,
+    );
+  } else if (privateKey is PEMPrivateKey) {
+    assert(usage != 'encrypt' || modulusLength is int);
+
+    jsCryptoKey = js.promiseToFuture<web_crypto.CryptoKey>(
+      web_crypto.importKey(
+        'pkcs8',
+        _jsArrayBufferFrom(privateKey.bytes),
+        web_crypto.RsaHashedImportParams(
+          name: name,
+          hash: hashName,
+          modulusLength: modulusLength,
+          publicExponent: _jsArrayBufferFrom([1, 0, 1]),
+        ),
+        false,
+        [usage],
       ),
-      false,
-      const ['sign'],
-    ),
-  );
+    );
+  }
 
   // Cache
-  privateKey.cachedValues[_webCryptoKeyCachingKey] = jsCryptoKey;
+  privateKey.cachedValues[usage] = jsCryptoKey;
 
   return jsCryptoKey;
 }
@@ -272,34 +352,51 @@ Future<web_crypto.CryptoKey> _rsaCryptoKeyFromPublicKey(
   PublicKey publicKey, {
   @required String name,
   @required String hashName,
+  @required String usage,
 }) async {
   // Is it cached?
-  final cachedValue = publicKey.cachedValues[_webCryptoKeyCachingKey];
+  final cachedValue = publicKey.cachedValues[usage];
   if (cachedValue != null) {
     return cachedValue;
   }
 
-  // Import JWK key
-  final jwkPrivateKey = publicKey as RsaJwkPublicKey;
-  final jsCryptoKey = js.promiseToFuture<web_crypto.CryptoKey>(
-    web_crypto.importKey(
-      'jwk',
-      web_crypto.Jwk(
-        kty: 'RSA',
-        n: _base64UrlEncode(jwkPrivateKey.n),
-        e: _base64UrlEncode(jwkPrivateKey.e),
+  var jsCryptoKey;
+
+  if (publicKey is RsaJwkPublicKey) {
+    final jwkPrivateKey = publicKey;
+    jsCryptoKey = js.promiseToFuture<web_crypto.CryptoKey>(
+      web_crypto.importKey(
+        'jwk',
+        web_crypto.Jwk(
+          kty: 'RSA',
+          n: _base64UrlEncode(jwkPrivateKey.n),
+          e: _base64UrlEncode(jwkPrivateKey.e),
+        ),
+        web_crypto.RsaHashedImportParams(
+          name: name,
+          hash: hashName,
+        ),
+        false,
+        [usage],
       ),
-      web_crypto.RsaHashedImportParams(
-        name: name,
-        hash: hashName,
+    );
+  } else if (publicKey is PEMPublicKey) {
+    jsCryptoKey = js.promiseToFuture<web_crypto.CryptoKey>(
+      web_crypto.importKey(
+        'spki',
+        _jsArrayBufferFrom(publicKey.bytes),
+        web_crypto.RsaHashedImportParams(
+          name: name,
+          hash: hashName,
+        ),
+        false,
+        [usage],
       ),
-      false,
-      const ['verify'],
-    ),
-  );
+    );
+  }
 
   // Cache
-  publicKey.cachedValues[_webCryptoKeyCachingKey] = jsCryptoKey;
+  publicKey.cachedValues[usage] = jsCryptoKey;
 
   return jsCryptoKey;
 }

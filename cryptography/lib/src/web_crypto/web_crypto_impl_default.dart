@@ -19,6 +19,8 @@ import 'package:meta/meta.dart';
 
 bool get isWebCryptoSupported => false;
 
+
+
 Future<Uint8List> aesCbcDecrypt(
   List<int> input, {
   @required SecretKey secretKey,
@@ -158,6 +160,23 @@ Future<KeyPair> rsaNewKeyPairForEncryption({
   @required int modulusLength,
   @required List<int> publicExponent,
   @required String format,
+}) {
+  throw UnimplementedError();
+}
+
+@override
+Future<Uint8List> rsaOaepEncrypt(
+  List<int> plainText, 
+  KeyPair keyPair,
+) {
+  throw UnimplementedError();
+}
+
+@override
+Future<Uint8List> rsaOaepDecrypt(
+  List<int> plainText, 
+  KeyPair keyPair, {
+  @required int modulusLength
 }) {
   throw UnimplementedError();
 }

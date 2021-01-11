@@ -39,6 +39,7 @@ export 'src/algorithms/hmac.dart';
 export 'src/algorithms/pbkdf2.dart';
 export 'src/algorithms/poly1305.dart';
 export 'src/algorithms/rsa_pss.dart';
+export 'src/algorithms/rsa_oaep.dart';
 export 'src/algorithms/rsa_ssa_pkcs1v15.dart';
 export 'src/algorithms/sha1_sha2.dart';
 export 'src/algorithms/xchacha20.dart';

@@ -22,6 +22,15 @@ import 'package:meta/meta.dart';
 
 @JS()
 @anonymous
+class RsaOaepParams {
+  external factory RsaOaepParams({
+    @required String name,
+    ByteBuffer label,
+  });
+}
+
+@JS()
+@anonymous
 class AesCbcParams {
   external factory AesCbcParams({
     @required String name,
@@ -199,6 +208,8 @@ class RsaHashedImportParams {
   external factory RsaHashedImportParams({
     @required String name,
     @required String hash,
+    int modulusLength,
+    ByteBuffer publicExponent,
   });
 }
 
