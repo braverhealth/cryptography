@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'dart:html' as html;
+import 'dart:html' show WorkerGlobalScope;
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -21,7 +21,7 @@ import '../../cryptography.dart';
 const _bit32 = 0x10000 * 0x10000;
 
 // Store the function so it can't be mutated by Javascript libraries.
-final _webCryptoRandom = html.window.crypto!.getRandomValues;
+final _webCryptoRandom = WorkerGlobalScope.instance.crypto!.getRandomValues;
 
 void fillBytesWithSecureRandom(Uint8List bytes, {Random? random}) {
   if (random == null &&
