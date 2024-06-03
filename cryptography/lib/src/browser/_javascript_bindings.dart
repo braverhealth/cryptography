@@ -17,7 +17,6 @@ library web_crypto_api;
 
 import 'dart:convert' show base64Url;
 import 'dart:html' show CryptoKey;
-import 'dart:html' as html;
 import 'dart:typed_data';
 
 import 'package:js/js.dart';
@@ -26,8 +25,7 @@ import 'package:js/js_util.dart' show promiseToFuture;
 export 'dart:html' show CryptoKey;
 
 /// Note that browsers support Web Cryptography only in secure contexts.
-final bool isWebCryptoAvailable =
-    _subtle != null && (html.window.isSecureContext ?? false);
+final bool isWebCryptoAvailable = _subtle != null;
 
 @JS('crypto.subtle')
 external Object? get _subtle;
